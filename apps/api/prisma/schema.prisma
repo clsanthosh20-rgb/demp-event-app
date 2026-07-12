@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         String   @default("user")
+  name         String
+  phone        String?
+  class        String?
+  section      String?
+  yearOfStudy  String?
+  department   String?
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  events         Event[]
+  registrations  Registration[]
+  notifications  Notification[]
+}
+
+model Event {
+  id                  String    @id @default(cuid())
+  title               String
+  description         String
+  invitation          String?
+  date                DateTime
+  location            String
+  roomNumber          String?
+  reportingTime       String?
+  registrationDeadline DateTime?
+  capacity            Int
+  mainCategory        String
+  subCategory         String
+  status              String    @default("upcoming")
+  imageUrl            String?
+  createdById         String
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  createdBy      User           @relation(fields: [createdById], references: [id])
+  registrations  Registration[]
+}
+
+model Registration {
+  id                   String    @id @default(cuid())
+  uniqueRegistrationId String    @unique
+  userId               String
+  eventId              String
+  status               String    @default("confirmed")
+  registeredAt         DateTime  @default(now())
+  qrCodeUrl            String?
+  checkedIn            Boolean   @default(false)
+  checkInTime          DateTime?
+  checkInAdminId       String?
+  checkInDevice        String?
+
+  user  User  @relation(fields: [userId], references: [id])
+  event Event @relation(fields: [eventId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Rule {
+  id       String  @id @default(cuid())
+  title    String
+  content  String
+  category String
+  order    Int
+  isActive Boolean @default(true)
+}
+
+model FAQ {
+  id       String  @id @default(cuid())
+  question String
+  answer   String
+  category String
+  order    Int
+  isActive Boolean @default(true)
+}

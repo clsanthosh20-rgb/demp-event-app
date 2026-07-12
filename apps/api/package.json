@@ -1,0 +1,47 @@
+{
+  "name": "@demp/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "node esbuild.config.mjs",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@demp/shared": "workspace:*",
+    "@prisma/client": "^6.19.3",
+    "bcryptjs": "^3.0.3",
+    "@google-cloud/storage": "^7.21.0",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "firebase-admin": "^13.2.0",
+    "firebase-functions": "^6.3.2",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.2",
+    "nodemailer": "^9.0.3",
+    "qrcode": "^1.5.4",
+    "sharp": "^0.34.1",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.1",
+    "@types/jsonwebtoken": "^9.0.9",
+    "@types/express-serve-static-core": "^5.0.6",
+    "@types/multer": "^1.4.12",
+    "@types/node": "^22.15.3",
+    "@types/nodemailer": "^8.0.1",
+    "@types/qrcode": "^1.5.5",
+    "esbuild": "^0.25.4",
+    "prisma": "^6.19.3",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.10"
+  }
+}

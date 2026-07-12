@@ -1,0 +1,29 @@
+export enum Role {
+  STUDENT = 'STUDENT',
+  ADMIN = 'ADMIN',
+}
+
+export enum EventStatus {
+  DRAFT = 'DRAFT',
+  OPEN = 'OPEN',
+  CLOSED = 'CLOSED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum MainCategory {
+  TECHNICAL = 'TECHNICAL',
+  NON_TECHNICAL = 'NON_TECHNICAL',
+}
+
+export enum RegistrationStatus {
+  REGISTERED = 'REGISTERED',
+  ATTENDED = 'ATTENDED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum NotificationType {
+  EVENT_REMINDER = 'EVENT_REMINDER',
+  REGISTRATION_CONFIRMATION = 'REGISTRATION_CONFIRMATION',
+  EVENT_CANCELLED = 'EVENT_CANCELLED',
+  GENERAL = 'GENERAL',
+}
