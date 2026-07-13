@@ -1,5 +1,4 @@
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -16,9 +15,6 @@ import { prisma } from './lib/prisma.js';
 import { generateEventPassHtml } from './lib/pdf.js';
 
 const app = express();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors());
@@ -104,7 +100,7 @@ app.get(/^(?!\/api\/v1|\/health).*/, (_req, res) => {
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 4000;
 
-if (!process.env.FUNCTION_TARGET) {
+if (process.env.RENDER || !process.env.FUNCTION_TARGET) {
   app.listen(PORT, () => {
     console.log(`API server running on port ${PORT}`);
   });

@@ -2,11 +2,11 @@ import esbuild from 'esbuild';
 
 await esbuild.build({
   entryPoints: ['src/index.ts'],
-  outfile: 'dist/index.js',
+  outfile: 'dist/index.cjs',
   bundle: true,
   platform: 'node',
   target: 'node22',
-  format: 'esm',
+  format: 'cjs',
   sourcemap: true,
   external: [
     'firebase-functions',
