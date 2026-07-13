@@ -13,6 +13,9 @@ await esbuild.build({
     'firebase-admin',
     '@google-cloud/storage',
     'sharp',
+    '@prisma/client',
+    '.prisma/client',
+    '@prisma/client/runtime/library',
   ],
   tsconfig: 'tsconfig.json',
 });
