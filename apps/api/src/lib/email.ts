@@ -97,7 +97,8 @@ async function sendMail(to: string, subject: string, html: string) {
     console.log(`[Email] SMTP not configured. Would send to ${to}: ${subject}`);
     return;
   }
-  await transporter.sendMail({ from: FROM, to, subject, html });
+  const info = await transporter.sendMail({ from: FROM, to, subject, html });
+  console.log('[Email] Sent to:', to, '| subject:', subject, '| messageId:', info.messageId);
 }
 
 export const emailService = { sendMail, templates, getTransporter };

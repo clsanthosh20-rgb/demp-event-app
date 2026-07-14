@@ -1,9 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Input, Spinner } from '@demp/ui';
+import { Link } from 'react-router-dom';
+import { Input, Spinner, Button, Card, CardContent } from '@demp/ui';
 import { EventCard } from '../components/EventCard';
 import { api } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
 import type { Event, PaginatedResponse, Registration } from '../lib/types';
+
+interface RegistrationResult {
+  id: string;
+  uniqueRegistrationId: string;
+  qrCodeUrl: string | null;
+  event: Event;
+}
 
 const SUB_CATEGORIES = ['QUIZ', 'DECODE', 'WPM', 'HACKATHON', 'WORKSHOP', 'CODING', 'CULTURAL', 'SPORTS', 'DEBATE', 'OTHER'];
 
@@ -17,6 +25,7 @@ function Events() {
   const [mainCategory, setMainCategory] = useState('');
   const [subCategory, setSubCategory] = useState('');
   const [customSub, setCustomSub] = useState('');
+  const [registrationResult, setRegistrationResult] = useState<RegistrationResult | null>(null);
 
   const fetch = useCallback(() => {
     setLoading(true);
@@ -43,8 +52,9 @@ function Events() {
   const handleRegister = async (eventId: string) => {
     setActionLoading(eventId);
     try {
-      await api.post(`/events/${eventId}/register`);
+      const result = await api.post<RegistrationResult>(`/events/${eventId}/register`);
       setMyRegIds((prev) => new Set(prev).add(eventId));
+      setRegistrationResult(result);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Registration failed');
     } finally {
@@ -131,6 +141,43 @@ function Events() {
               />
             </div>
           ))}
+        </div>
+      )}
+
+      {registrationResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setRegistrationResult(null)}>
+          <Card className="w-full max-w-md animate-scale-in" onClick={(e) => e.stopPropagation()}>
+            <CardContent className="pt-6 space-y-4">
+              <div className="text-center">
+                <div className="w-14 h-14 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-7 h-7 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h2 className="text-lg font-semibold text-[#f5f5f5]">Registration Confirmed</h2>
+                <p className="text-sm text-white/40 mt-1">{registrationResult.event.title}</p>
+              </div>
+
+              <div className="bg-white/[0.03] rounded-2xl p-4 space-y-2">
+                <div className="text-center">
+                  <p className="text-[11px] text-white/30 font-medium uppercase tracking-wider">Registration ID</p>
+                  <p className="text-primary-300 font-mono font-semibold text-[18px] tracking-wider mt-1">{registrationResult.uniqueRegistrationId}</p>
+                </div>
+                {registrationResult.qrCodeUrl && (
+                  <div className="flex justify-center pt-2">
+                    <img src={registrationResult.qrCodeUrl} alt="QR Code" className="w-36 h-36 rounded-xl bg-white p-2" />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                <Link to="/my-registrations" className="flex-1" onClick={() => setRegistrationResult(null)}>
+                  <Button variant="outline" className="w-full">View My Registrations</Button>
+                </Link>
+                <Button onClick={() => setRegistrationResult(null)} className="flex-1">Done</Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

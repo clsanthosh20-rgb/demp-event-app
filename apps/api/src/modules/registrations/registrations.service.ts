@@ -39,7 +39,7 @@ async function register(userId: string, eventId: string) {
       color: { dark: '#1a1a3e', light: '#ffffff' },
     });
   } catch {
-    console.warn('[QR] Failed to generate QR code');
+    console.warn('[Registration] QR generation failed');
   }
 
   const registration = await prisma.registration.create({
@@ -52,6 +52,8 @@ async function register(userId: string, eventId: string) {
       checkedIn: false,
     },
   });
+
+  console.log('[Registration] Created:', uniqueRegistrationId, 'for event:', event.title);
 
   const creator = event.createdById
     ? await prisma.user.findUnique({ where: { id: event.createdById } })
@@ -98,9 +100,12 @@ async function register(userId: string, eventId: string) {
       collegeName,
       qrPageLink,
     );
-    emailService.sendMail(user.email, subject, html).catch((err: Error) =>
-      console.warn('[Email] Failed to send:', err.message)
-    );
+    console.log('[Registration] Attempting confirmation email to:', user.email);
+    emailService.sendMail(user.email, subject, html)
+      .then(() => console.log('[Registration] Confirmation email sent to:', user.email))
+      .catch((err: Error) =>
+        console.warn('[Registration] Confirmation email failed for', user.email, ':', err.message)
+      );
   }
 
   return {
