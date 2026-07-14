@@ -2,16 +2,17 @@ import nodemailer from 'nodemailer';
 
 const HOST = process.env.SMTP_HOST || '';
 const PORT = Number(process.env.SMTP_PORT) || 587;
+const SECURE = process.env.SMTP_SECURE ? process.env.SMTP_SECURE === 'true' : PORT === 465;
 const USER = process.env.SMTP_USER || '';
 const PASS = process.env.SMTP_PASS || '';
-const FROM = process.env.SMTP_FROM || 'noreply@demp.local';
+const FROM = process.env.MAIL_FROM || process.env.SMTP_FROM || 'noreply@demp.local';
 
 function getTransporter() {
   if (!HOST) return null;
   return nodemailer.createTransport({
     host: HOST,
     port: PORT,
-    secure: PORT === 465,
+    secure: SECURE,
     auth: USER ? { user: USER, pass: PASS } : undefined,
   });
 }
