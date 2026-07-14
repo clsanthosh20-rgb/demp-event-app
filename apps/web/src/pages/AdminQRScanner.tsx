@@ -27,7 +27,9 @@ interface VerificationResult {
   };
 }
 
-type CameraError = 'not-supported' | 'permission-denied' | 'not-found' | 'unknown';
+type CameraError = 'not-supported' | 'https-required' | 'no-device' | 'permission-denied' | 'not-found' | 'start-failed' | 'timeout';
+
+const CAMERA_TIMEOUT_MS = 15_000;
 
 function AdminQRScanner() {
   const [inputCode, setInputCode] = useState('');
@@ -40,11 +42,31 @@ function AdminQRScanner() {
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<CameraError | null>(null);
   const [scanning, setScanning] = useState(false);
-  const [scannedCode, setScannedCode] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animationRef = useRef<number>(0);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const cancelledRef = useRef(false);
+
+  const stopCamera = useCallback(() => {
+    cancelledRef.current = true;
+    setCameraActive(false);
+    setCameraError(null);
+    setScanning(false);
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = 0;
+    }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = undefined;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+  }, []);
 
   const handleVerify = useCallback(async (code: string) => {
     if (!code.trim()) return;
@@ -62,67 +84,18 @@ function AdminQRScanner() {
     }
   }, []);
 
-  const stopCamera = useCallback(() => {
-    setCameraActive(false);
-    setCameraError(null);
-    setScanning(false);
-    setScannedCode('');
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-      animationRef.current = 0;
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-    }
-  }, []);
-
-  const startCamera = useCallback(async () => {
-    setCameraError(null);
-    setScanning(false);
-    setScannedCode('');
-
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setCameraError('not-supported');
-      return;
-    }
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' },
-      });
-      streamRef.current = stream;
-      setCameraActive(true);
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-    } catch (e) {
-      if (e instanceof DOMException) {
-        if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
-          setCameraError('permission-denied');
-        } else if (e.name === 'NotFoundError') {
-          setCameraError('not-found');
-        } else {
-          setCameraError('unknown');
-        }
-      } else {
-        setCameraError('unknown');
-      }
-    }
-  }, []);
-
-  const scanFrame = useCallback(() => {
+  const scanLoop = useCallback(() => {
+    if (cancelledRef.current) return;
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    if (!video || !canvas || video.readyState !== video.HAVE_ENOUGH_DATA) {
-      animationRef.current = requestAnimationFrame(scanFrame);
+    if (!video || !canvas || video.readyState !== video.HAVE_ENOUGH_DATA || !video.videoWidth) {
+      animationRef.current = requestAnimationFrame(scanLoop);
       return;
     }
 
     const ctx = canvas.getContext('2d');
     if (!ctx) {
-      animationRef.current = requestAnimationFrame(scanFrame);
+      animationRef.current = requestAnimationFrame(scanLoop);
       return;
     }
 
@@ -133,6 +106,7 @@ function AdminQRScanner() {
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
     import('jsqr').then((jsQR) => {
+      if (cancelledRef.current) return;
       const code = jsQR.default(imageData.data, imageData.width, imageData.height);
       if (code) {
         const value = code.data;
@@ -145,34 +119,98 @@ function AdminQRScanner() {
           registrationId = value.trim();
         }
 
-        if (registrationId && registrationId.startsWith('DEMP-')) {
-          setScannedCode(registrationId);
+        if (registrationId && (registrationId.startsWith('DEMP-') || registrationId.length >= 8)) {
           stopCamera();
           handleVerify(registrationId);
           return;
         }
       }
-      animationRef.current = requestAnimationFrame(scanFrame);
+      animationRef.current = requestAnimationFrame(scanLoop);
     });
-  }, [handleVerify, stopCamera]);
+  }, [stopCamera, handleVerify]);
 
-  useEffect(() => {
-    if (cameraActive && videoRef.current) {
-      const video = videoRef.current;
-      const onPlay = () => {
-        setScanning(true);
-        animationRef.current = requestAnimationFrame(scanFrame);
-      };
-      video.addEventListener('play', onPlay);
-      return () => {
-        video.removeEventListener('play', onPlay);
-        if (animationRef.current) {
-          cancelAnimationFrame(animationRef.current);
-          animationRef.current = 0;
-        }
-      };
+  const startCamera = useCallback(async () => {
+    setCameraError(null);
+    setScanning(false);
+    setResult(null);
+    setError('');
+    cancelledRef.current = false;
+
+    if (!window.isSecureContext) {
+      setCameraError('https-required');
+      return;
     }
-  }, [cameraActive, scanFrame]);
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraError('not-supported');
+      return;
+    }
+
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const hasVideo = devices.some((d) => d.kind === 'videoinput');
+      if (!hasVideo) {
+        setCameraError('no-device');
+        return;
+      }
+    } catch {
+    }
+
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } },
+      });
+    } catch (e) {
+      if (e instanceof DOMException) {
+        if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
+          setCameraError('permission-denied');
+        } else if (e.name === 'NotFoundError') {
+          setCameraError('not-found');
+        } else {
+          setCameraError('start-failed');
+        }
+      } else {
+        setCameraError('start-failed');
+      }
+      return;
+    }
+
+    streamRef.current = stream;
+    setCameraActive(true);
+
+    const videoEl = videoRef.current;
+    if (!videoEl) {
+      stream.getTracks().forEach((t) => t.stop());
+      setCameraActive(false);
+      setCameraError('not-supported');
+      return;
+    }
+
+    videoEl.srcObject = stream;
+
+    try {
+      await videoEl.play();
+    } catch {
+      stream.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+      setCameraActive(false);
+      setCameraError('permission-denied');
+      return;
+    }
+
+    setScanning(true);
+    animationRef.current = requestAnimationFrame(scanLoop);
+
+    timeoutRef.current = setTimeout(() => {
+      if (cancelledRef.current) return;
+      const videoCheck = videoRef.current;
+      if (!videoCheck || videoCheck.readyState < videoCheck.HAVE_CURRENT_DATA || !videoCheck.videoWidth) {
+        stopCamera();
+        setCameraError('timeout');
+      }
+    }, CAMERA_TIMEOUT_MS);
+  }, [scanLoop, stopCamera]);
 
   useEffect(() => {
     return () => {
@@ -195,10 +233,13 @@ function AdminQRScanner() {
   };
 
   const cameraErrorMessages: Record<CameraError, string> = {
-    'not-supported': 'Camera is not supported on this device or browser.',
-    'permission-denied': 'Camera permission was denied. Please allow camera access in your browser settings and try again. Manual entry is still available below.',
-    'not-found': 'No camera found on this device.',
-    'unknown': 'An unknown error occurred while accessing the camera.',
+    'not-supported': 'Camera access is not supported on this device or browser. Use manual entry below.',
+    'https-required': 'Camera access requires a secure connection (HTTPS). Use manual entry below.',
+    'no-device': 'No camera device found on this system. Use manual entry below.',
+    'permission-denied': 'Camera permission was denied. Please allow camera access in your browser settings, then try again. Manual entry is still available below.',
+    'not-found': 'No camera found on this device. Use manual entry below.',
+    'start-failed': 'Failed to start the camera. Use manual entry below.',
+    'timeout': 'Camera is taking too long to start. Try again or use manual entry below.',
   };
 
   return (
