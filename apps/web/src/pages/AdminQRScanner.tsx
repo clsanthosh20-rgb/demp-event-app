@@ -136,24 +136,20 @@ function AdminQRScanner() {
     setError('');
     cancelledRef.current = false;
 
-    if (!window.isSecureContext) {
-      setCameraError('https-required');
-      return;
-    }
+    console.log('secure', window.isSecureContext);
+    console.log('mediaDevices', !!navigator.mediaDevices);
+    console.log('getUserMedia', !!navigator.mediaDevices?.getUserMedia);
 
-    if (!navigator.mediaDevices?.getUserMedia) {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
       setCameraError('not-supported');
       return;
     }
 
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
-      const hasVideo = devices.some((d) => d.kind === 'videoinput');
-      if (!hasVideo) {
-        setCameraError('no-device');
-        return;
-      }
+      console.log('devices', devices);
     } catch {
+      console.log('devices', []);
     }
 
     let stream: MediaStream;
@@ -177,12 +173,10 @@ function AdminQRScanner() {
     }
 
     streamRef.current = stream;
-    setCameraActive(true);
 
     const videoEl = videoRef.current;
     if (!videoEl) {
       stream.getTracks().forEach((t) => t.stop());
-      setCameraActive(false);
       setCameraError('not-supported');
       return;
     }
@@ -194,11 +188,11 @@ function AdminQRScanner() {
     } catch {
       stream.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
-      setCameraActive(false);
       setCameraError('permission-denied');
       return;
     }
 
+    setCameraActive(true);
     setScanning(true);
     animationRef.current = requestAnimationFrame(scanLoop);
 
@@ -268,28 +262,26 @@ function AdminQRScanner() {
             )}
           </div>
 
-          {cameraActive && (
-            <div className="relative rounded-2xl overflow-hidden bg-black border border-white/[0.07]">
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full aspect-[4/3] object-cover"
-              />
-              <canvas ref={canvasRef} className="hidden" />
-              {scanning && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="w-48 h-48 border-2 border-primary-500/60 rounded-xl animate-pulse" />
-                </div>
-              )}
-              {!scanning && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                  <Spinner size="sm" />
-                </div>
-              )}
-            </div>
-          )}
+          <div className={`relative rounded-2xl overflow-hidden bg-black border border-white/[0.07] ${!cameraActive ? 'hidden' : ''}`}>
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full aspect-[4/3] object-cover"
+            />
+            <canvas ref={canvasRef} className="hidden" />
+            {cameraActive && scanning && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-48 h-48 border-2 border-primary-500/60 rounded-xl animate-pulse" />
+              </div>
+            )}
+            {cameraActive && !scanning && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                <Spinner size="sm" />
+              </div>
+            )}
+          </div>
 
           {cameraError && (
             <div className="flex items-start gap-3 p-3 rounded-2xl bg-yellow-500/10 border border-yellow-500/20">
